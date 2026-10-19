@@ -1,0 +1,33 @@
+using Forms = System.Windows.Forms;
+namespace DesktopNative;
+internal static class Fixture
+{
+    internal static void Run() {
+        var form = new Forms.Form { Text = "DSH Native Test Fixture", Width = 680, Height = 650, StartPosition = Forms.FormStartPosition.CenterScreen };
+        var edit = new Forms.TextBox { Name = "testInput", Multiline = true, Left = 24, Top = 65, Width = 600, Height = 180, Font = new System.Drawing.Font("Microsoft YaHei UI", 16) };
+        var label = new Forms.Label { Name = "testStatus", Text = "等待测试 READY", Left = 24, Top = 270, Width = 600, Height = 50, Font = new System.Drawing.Font("Microsoft YaHei UI", 18) };
+        var button = new Forms.Button { Name = "testButton", Text = "确认 Verify", Left = 24, Top = 20, Width = 170, Height = 36 };
+        button.Click += (_, _) => label.Text = "已确认 VERIFIED";
+        var stop = new Forms.Button { Name = "testStop", Text = "发送 Esc", Left = 220, Top = 20, Width = 120, Height = 36 };
+        stop.Click += (_, _) => { Native.Key(27, false); Native.Key(27, true); };
+        var password = new Forms.TextBox { Name = "testPassword", Text = "fixture-secret-value", UseSystemPasswordChar = true, Left = 24, Top = 340, Width = 260 };
+        var pointerStatus = new Forms.Label { Name = "pointerStatus", Text = "POINTER READY", Left = 24, Top = 480, Width = 580, Height = 36 };
+        System.Drawing.Point start = default;
+        edit.MouseDown += (_, e) => start = e.Location;
+        edit.MouseUp += (_, e) => { if (Math.Abs(start.X - e.X) + Math.Abs(start.Y - e.Y) > 10) pointerStatus.Text = "DRAGGED"; };
+        edit.MouseDoubleClick += (_, _) => pointerStatus.Text = "DOUBLE_CLICKED";
+        edit.MouseWheel += (_, _) => pointerStatus.Text = "SCROLLED";
+        var clipboardBaseline = Forms.Clipboard.ContainsText() ? Forms.Clipboard.GetText() : null;
+        var clipboardCheck = new Forms.Button { Name = "clipboardCheck", Text = "检查剪贴板", Left = 24, Top = 530, Width = 170, Height = 36 };
+        clipboardCheck.Click += (_, _) => pointerStatus.Text = clipboardBaseline == (Forms.Clipboard.ContainsText() ? Forms.Clipboard.GetText() : null) ? "CLIPBOARD_RESTORED" : "CLIPBOARD_CHANGED";
+        var ocrLabel = new Forms.Label { Text = "NATIVE TEST 12345", Left = 24, Top = 400, Width = 600, Height = 60, Font = new System.Drawing.Font("Arial", 18) };
+        form.Controls.AddRange([edit, label, button, stop, password, ocrLabel, pointerStatus, clipboardCheck]);
+        form.Shown += (_, _) => {
+            // Child process console hiding can also affect its initial ShowWindow.
+            // Explicitly show only this owned fixture, then report real visibility.
+            Native.ShowWindow(form.Handle, 5);
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { ready = true, hwnd = (long)form.Handle, processId = Environment.ProcessId, visible = Native.IsWindowVisible(form.Handle) }));
+        };
+        Forms.Application.Run(form);
+    }
+}

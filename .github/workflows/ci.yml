@@ -1,64 +1,25 @@
-name: CI
-
-on:
-  push:
-  pull_request:
-
+name: Native Windows verification
+on: [push, pull_request]
 jobs:
-  selftest:
-    # The backend drives a real Windows desktop (UIA + SendInput), so the
-    # smoke test must run on a Windows runner with a desktop session.
+  windows:
     runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        powershell: [powershell.exe, pwsh.exe]
-    env:
-      WINDOWS_CU_POWERSHELL: ${{ matrix.powershell }}
-      WCU_BACKEND_TRACE: '1'
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-
-      # Runtime remains dependency-free. Test-only dependencies parse the DSH
-      # bundle and launch real Node/Electron children through the official SDK.
-      - name: Install regression dependencies
-        run: npm ci
-
-      - name: Download Electron test runtime
-        run: node test/install-electron.mjs
-        env:
-          WCU_ELECTRON_INSTALL_LOG: ${{ runner.temp }}/electron-install.log
-        timeout-minutes: 5
-
-      - name: Preserve Electron installation diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
+          cache: npm
+      - uses: actions/setup-dotnet@v4
         with:
-          name: electron-install-${{ matrix.powershell }}
-          path: ${{ runner.temp }}/electron-install.log
-          if-no-files-found: warn
-
-      # Runtime caches and artifacts are isolated per suite. Read-only smoke
-      # checks use the desktop; input/activation/coordinate tests use fake APIs.
-      # UIA cache smokes open/close only owned native/Chromium fixture windows.
-      - name: Isolated backend regression suite
-        id: regression
-        run: npm test
-        timeout-minutes: 15
-
-      - name: Preserve regression diagnostics
-        # Earlier setup failures leave artifactRoot empty. Never expand an
-        # empty root into a glob covering the runner's entire drive.
-        if: ${{ always() && steps.regression.outputs.artifactRoot != '' }}
-        uses: actions/upload-artifact@v4
+          dotnet-version: 10.0.x
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm run package:local
+      - uses: actions/upload-artifact@v4
         with:
-          name: regression-${{ matrix.powershell }}
+          name: dsh-windows-computer-use-win-x64
           path: |
-            ${{ steps.regression.outputs.artifactRoot }}/results.json
-            ${{ steps.regression.outputs.artifactRoot }}/*/*.log
-            ${{ steps.regression.outputs.artifactRoot }}/*/results.json
-          if-no-files-found: warn
+            artifacts/*.tgz
+            artifacts/*.sha256
+          if-no-files-found: error
