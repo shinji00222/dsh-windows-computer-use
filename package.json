@@ -1,6 +1,6 @@
 {
   "name": "dsh-windows-computer-use",
-  "version": "0.1.0-preview.1",
+  "version": "0.1.0-preview.2",
   "private": true,
   "description": "DSH / DeepSeek Harness Windows computer-use plugin: screenshot, UI Automation, OCR, mouse, Chinese input and Esc stop.",
   "type": "module",

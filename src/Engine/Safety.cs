@@ -13,9 +13,14 @@ internal sealed class Safety : IDisposable
     private nint hook;
     private Forms.Form? banner;
     private Exception? startError;
+    private int escapeEvents;
+    internal int EscapeEvents => Volatile.Read(ref escapeEvents);
+    internal bool ListenerAlive => thread.IsAlive && hook != 0 && startError is null;
     internal Safety() {
         callback = (code, wparam, lparam) => {
-            if (code >= 0 && (wparam == 0x100 || wparam == 0x104) && Marshal.ReadInt32(lparam) == 27) Stop();
+            if (code >= 0 && (wparam == 0x100 || wparam == 0x104) && Marshal.ReadInt32(lparam) == 27) {
+                Interlocked.Increment(ref escapeEvents); Stop();
+            }
             return Native.CallNextHookEx(hook, code, wparam, lparam);
         };
         thread = new Thread(() => {
@@ -27,7 +32,8 @@ internal sealed class Safety : IDisposable
                 _ = banner.Handle;
                 hook = Native.SetWindowsHookEx(13, callback, Native.GetModuleHandle(null), 0);
                 if (hook == 0) throw new InvalidOperationException("STOP_LISTENER_UNAVAILABLE");
-                ready.Set(); Forms.Application.Run();
+                // Readiness means the hook thread is actually pumping messages.
+                banner.BeginInvoke(() => ready.Set()); Forms.Application.Run();
             } catch (Exception e) { startError = e; ready.Set(); }
             finally { if (hook != 0) Native.UnhookWindowsHookEx(hook); }
         }) { IsBackground = true, Name = "Desktop emergency stop" };

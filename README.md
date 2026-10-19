@@ -4,7 +4,7 @@
 
 这是基于 [Yu-tao-Li/dsh-computer-use-win](https://github.com/Yu-tao-Li/dsh-computer-use-win) 改造的独立项目。我们的侧重点有所不同：用 **C# 原生引擎 + TypeScript 接入层**，把目标窗口绑定、停止机制和结果验证放在前面。感谢原项目及更早上游 [cgissing/windows-computer-use](https://github.com/cgissing/windows-computer-use) 的工作，来源和许可见 [NOTICE.md](NOTICE.md)。
 
-当前是 **0.1.0-preview.1 预览版**，面向 Windows x64 和愿意测试的 DSH Desktop 用户。
+当前是 **0.1.0-preview.2 预览版**，面向 Windows x64 和愿意测试的 DSH Desktop 用户。
 
 ## 能做什么
 
@@ -36,7 +36,7 @@ npm run package:local
 先构建并打包，在 **Desktop 自带终端**安装生成的 `.tgz`（替换成实际绝对路径）：
 
 ```powershell
-dsh plugin --profile desktop add "C:\path\to\dsh-windows-computer-use-0.1.0-preview.1.tgz"
+dsh plugin --profile desktop add "C:\path\to\dsh-windows-computer-use-0.1.0-preview.2.tgz"
 ```
 
 完整退出并重开 DSH。插件配置提供操作提示和只读模式，客户端插件卡片解释操作与停止规则。工具名前缀为 `mcp__shin_desktop__windows_computer_use_`。
@@ -64,7 +64,7 @@ dsh plugin --profile desktop add "C:\path\to\dsh-windows-computer-use-0.1.0-prev
 
 ## 已知边界
 
-- Windows 可能拒绝前台激活；遇到 `FOREGROUND_DENIED` 或 `FOCUS_CHANGED` 时停止输入，确认目标窗口后重新观察。本机曾出现一次前台及 Esc 测试失败，后续连续四轮通过，原因仍待定位。
+- 激活窗口会等待目标处理消息；Windows 仍可能拒绝切换前台。遇到 `FOREGROUND_DENIED` 或 `FOCUS_CHANGED` 时停止输入，确认目标窗口后重新观察。
 - 本版没有后台消息输入和 WGC 捕获；后台窗口用 PrintWindow，失败时的屏幕裁剪会标记可能被遮挡。
 - UIA 控件调用可能阻塞。超时会停止并回收工作进程，不自动重放输入；已经送达应用的动作无法撤回。
 - OCR 依赖已安装的 Windows OCR 语言包。坐标匹配是文字定位，不代表理解按钮含义。

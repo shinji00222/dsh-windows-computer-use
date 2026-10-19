@@ -7,7 +7,7 @@ import {readFile} from 'node:fs/promises';
 import {Backend} from './backend.js';
 import {catalog} from './catalog.js';
 const backend=new Backend({indicator:process.env.DSH_NATIVE_INDICATOR!=='0'});
-const server=new Server({name:'dsh-windows-computer-use',version:'0.1.0-preview.1'},{capabilities:{tools:{}}});
+const server=new Server({name:'dsh-windows-computer-use',version:'0.1.0-preview.2'},{capabilities:{tools:{}}});
 const ajv=new Ajv({useDefaults:true,strict:false,allErrors:true});
 const readActions=new Set(['health','list_windows','snapshot','accessibility_tree','find','element_info','screenshot','ocr','wait','wait_for']);
 const visibleCatalog=process.env.DSH_NATIVE_READ_ONLY==='1'?catalog.filter(tool=>readActions.has(tool.name.replace('windows_computer_use_',''))):catalog;

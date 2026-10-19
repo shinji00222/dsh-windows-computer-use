@@ -26,7 +26,7 @@ internal static class Program
                 }
             } finally { queue.CompleteAdding(); }
         });
-        Reply(new { ready = true, version = "0.1.0-preview.1" });
+        Reply(new { ready = true, version = "0.1.0-preview.2" });
         foreach (var request in queue.GetConsumingEnumerable()) {
             var id = request.GetProperty("id").GetInt32();
             try {

@@ -23,8 +23,6 @@ internal static class Native
     [DllImport("user32.dll")] internal static extern uint GetWindowThreadProcessId(nint hwnd, out uint pid);
     [DllImport("user32.dll")] internal static extern bool GetWindowRect(nint hwnd, out Rect rect);
     [DllImport("user32.dll")] internal static extern bool SetForegroundWindow(nint hwnd);
-    [DllImport("user32.dll")] internal static extern bool AttachThreadInput(uint source, uint target, bool attach);
-    [DllImport("kernel32.dll")] internal static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] internal static extern bool ShowWindow(nint hwnd, int command);
     [DllImport("user32.dll", SetLastError = true)] internal static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] internal static extern bool GetCursorPos(out Point point);
@@ -47,6 +45,12 @@ internal static class Native
     internal static void Key(ushort key, bool up, bool unicode = false) => Send(new Input { Type = 1, Data = new InputData { Keyboard = new KeyboardInput {
         Key = unicode ? (ushort)0 : key, Scan = unicode ? key : (ushort)0, Flags = (up ? 2u : 0u) | (unicode ? 4u : 0u) } } });
     internal static void Mouse(uint flags, int data = 0) => Send(new Input { Type = 0, Data = new InputData { Mouse = new MouseInput { Flags = flags, Data = unchecked((uint)data) } } });
+    internal static void DoubleClick(uint down, uint up) {
+        // One batch avoids scheduler delays and interleaving between the clicks.
+        var events = new[] { down, up, down, up }.Select(flags => new Input { Type = 0, Data = new InputData { Mouse = new MouseInput { Flags = flags } } }).ToArray();
+        if (SendInput((uint)events.Length, events, Marshal.SizeOf<Input>()) != events.Length)
+            throw new InvalidOperationException("INPUT_REJECTED: incomplete double-click; observe before retrying.");
+    }
     private static void Send(Input input) {
         if (SendInput(1, [input], Marshal.SizeOf<Input>()) != 1) throw new InvalidOperationException("INPUT_REJECTED: Windows blocked input (check target integrity/UAC).");
     }

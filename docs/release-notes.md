@@ -1,6 +1,10 @@
-# 0.1.0-preview.1
+# 0.1.0-preview.2
 
-版本分类：**预览版**。适用于 Windows x64、DSH Desktop 0.2.0-rc.2 的测试用户。
+版本分类：**修复预览版**。适用于 Windows x64、DSH Desktop 0.2.0-rc.2 的测试用户。
+
+修复目标窗口忙碌时过早报告激活失败；等待实际前台状态，移除可能阻塞的输入队列附加。停止监听等消息循环就绪后启动，并提供 Esc 事件计数用于诊断。相对 preview.1 无破坏性配置变化，更新同名插件后正常重开 DSH。
+
+双击改为一次提交四个事件，点击前重新核对焦点和指针，减少调度间隔与其他输入插入的影响。
 
 这是基于 dsh-computer-use-win 改造的第一版，采用 C# 桌面引擎和 TypeScript 接入，重点是目标窗口绑定、Esc 停止和操作后的证据核对。原项目及更早上游署名和 MIT 许可均保留。
 
@@ -9,7 +13,7 @@
 下载 Release 的 `.tgz`，在 DSH Desktop 自带终端执行：
 
 ```powershell
-dsh plugin --profile desktop add "C:\path\to\dsh-windows-computer-use-0.1.0-preview.1.tgz"
+dsh plugin --profile desktop add "C:\path\to\dsh-windows-computer-use-0.1.0-preview.2.tgz"
 ```
 
 完整退出并重开 DSH。包内含运行依赖和自包含 C# 引擎，不要求安装 .NET SDK；支持中文和带空格路径。只选择一套电脑控制插件执行任务，避免争抢桌面。

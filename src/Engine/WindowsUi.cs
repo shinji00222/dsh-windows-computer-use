@@ -58,20 +58,23 @@ internal sealed class WindowsUi(Safety safety)
     internal void Activate(nint hwnd) {
         if (Native.IsIconic(hwnd)) Native.ShowWindow(hwnd, 9);
         Native.SetForegroundWindow(hwnd);
-        if (Native.GetForegroundWindow() != hwnd) {
-            var foregroundThread = Native.GetWindowThreadProcessId(Native.GetForegroundWindow(), out _);
-            var currentThread = Native.GetCurrentThreadId();
-            var attached = foregroundThread != 0 && currentThread != foregroundThread && Native.AttachThreadInput(currentThread, foregroundThread, true);
-            try {
-                safety.Check();
-                // Same fallback used by desktop automation tools. Always release
-                // Alt, including cancellation, and verify the resulting foreground.
-                try { Native.Key(18, false); } finally { Native.Key(18, true); }
-                Native.SetForegroundWindow(hwnd);
-            } finally { if (attached) Native.AttachThreadInput(currentThread, foregroundThread, false); }
+        // Cross-input-queue activation is asynchronous. Do not attach our input
+        // queue to another application's potentially blocked UI thread.
+        if (WaitForForeground(hwnd, 1200)) return;
+        safety.Check();
+        try { Native.Key(18, false); } finally { Native.Key(18, true); }
+        Native.SetForegroundWindow(hwnd);
+        if (!WaitForForeground(hwnd, 1200)) throw new InvalidOperationException(
+            $"FOREGROUND_DENIED: target={(long)hwnd}, foreground={(long)Native.GetForegroundWindow()}; activate the target manually, then observe again.");
+    }
+    private bool WaitForForeground(nint hwnd, int timeoutMs) {
+        for (var elapsed = 0; elapsed < timeoutMs; elapsed += 20) {
+            safety.Check();
+            if (!Native.IsWindow(hwnd)) throw new InvalidOperationException("TARGET_UNAVAILABLE");
+            if (Native.GetForegroundWindow() == hwnd) return true;
+            safety.Delay(20);
         }
-        safety.Delay(100);
-        if (Native.GetForegroundWindow() != hwnd) throw new InvalidOperationException("FOREGROUND_DENIED: activate the target manually.");
+        return Native.GetForegroundWindow() == hwnd;
     }
     internal void Foreground(nint hwnd, Arguments a) {
         if (a.Bool("activate") && Native.GetForegroundWindow() != hwnd) Activate(hwnd);

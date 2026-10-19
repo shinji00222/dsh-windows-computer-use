@@ -9,7 +9,11 @@ internal static class Fixture
         var button = new Forms.Button { Name = "testButton", Text = "确认 Verify", Left = 24, Top = 20, Width = 170, Height = 36 };
         button.Click += (_, _) => label.Text = "已确认 VERIFIED";
         var stop = new Forms.Button { Name = "testStop", Text = "发送 Esc", Left = 220, Top = 20, Width = 120, Height = 36 };
-        stop.Click += (_, _) => { Native.Key(27, false); Native.Key(27, true); };
+        // Deliberately asynchronous: UIA Invoke returning does not prove the effect.
+        var escapeTimer = new Forms.Timer { Interval = 450 };
+        escapeTimer.Tick += (_, _) => { escapeTimer.Stop(); try { Native.Key(27, false); } finally { Native.Key(27, true); } };
+        stop.Click += (_, _) => escapeTimer.Start();
+        form.FormClosed += (_, _) => escapeTimer.Dispose();
         var password = new Forms.TextBox { Name = "testPassword", Text = "fixture-secret-value", UseSystemPasswordChar = true, Left = 24, Top = 340, Width = 260 };
         var pointerStatus = new Forms.Label { Name = "pointerStatus", Text = "POINTER READY", Left = 24, Top = 480, Width = 580, Height = 36 };
         System.Drawing.Point start = default;
@@ -27,6 +31,15 @@ internal static class Fixture
             // Explicitly show only this owned fixture, then report real visibility.
             Native.ShowWindow(form.Handle, 5);
             Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { ready = true, hwnd = (long)form.Handle, processId = Environment.ProcessId, visible = Native.IsWindowVisible(form.Handle) }));
+            // Test-only control channel: emulate an application briefly busy on its UI thread.
+            _ = Task.Run(() => {
+                while (Console.ReadLine() is { } command) {
+                    if (command == "stall") form.BeginInvoke(() => {
+                        Console.WriteLine("{\"stalled\":true}");
+                        Thread.Sleep(900);
+                    });
+                }
+            });
         };
         Forms.Application.Run(form);
     }

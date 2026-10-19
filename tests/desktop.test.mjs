@@ -102,6 +102,11 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
         await backend.call('activate_window',otherTarget,'binding');
         await assert.rejects(()=>call('type_text',{text:'must not send',method:'sendinput'},'binding'),/FOCUS_CHANGED/);
         await assert.rejects(()=>call('set_value',{elementId:foreign.id,value:'must not write'},'binding'),/STALE_ELEMENT/);
+        // The activation nudge is asynchronous across input queues. A busy UI
+        // must be allowed to process it before we report denial or send input.
+        const stalled=once(lines,'line');fixture.stdin.write('stall\n');
+        assert.equal(JSON.parse((await stalled)[0]).stalled,true);
+        await call('activate_window',{},'binding');
         await backend.call('close_window',otherTarget,'binding');
         await backend.call('wait_for',{...otherTarget,condition:'window',appear:false,timeoutMs:3000},'binding');
         await refresh();await call('activate_window');
@@ -115,10 +120,14 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
       await backend.call('wait',{milliseconds:1},'new-human-turn');
     });
     await t.test('native Escape hook stops this turn; new human turn may continue',async()=>{
-      await refresh();
+      await refresh();await call('activate_window');
+      const before=await backend.call('health');
       // Test button emits Escape through Win32. This exercises the actual global hook.
       try{await call('invoke',{elementId:node('testStop').id},'escape');}catch(error){assert.match(error.message,/STOPPED_BY_USER/);}
-      await new Promise(r=>setTimeout(r,200));
+      const deadline=Date.now()+2500;
+      let health;
+      do{health=await backend.call('health');if(health.escapeEvents>before.escapeEvents)break;await new Promise(r=>setTimeout(r,20));}while(Date.now()<deadline);
+      assert.ok(health.escapeEvents>before.escapeEvents,JSON.stringify({message:'No native Escape event observed',before,health}));
       await assert.rejects(()=>backend.call('wait',{milliseconds:1},'escape'),/STOPPED_BY_USER/);
       await backend.call('wait',{milliseconds:1},'after-escape');
     });

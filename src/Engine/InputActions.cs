@@ -18,11 +18,13 @@ internal sealed class InputActions(WindowsUi ui, Safety safety)
             if (a.Int("deltaX") != 0) Native.Mouse(0x1000, a.Int("deltaX"));
         } else {
             var flags = Button(a.Text("button", "left"));
-            for (var i = 0; i < (action == "double_click" ? 2 : 1); i++) {
-                safety.Check();
-                try { Native.Mouse(flags.Down); safety.Delay(30); } finally { Native.Mouse(flags.Up); }
-                if (action == "double_click") safety.Delay(50);
-            }
+            safety.Check(); ui.AssertForeground(hwnd);
+            Native.GetCursorPos(out var cursor);
+            if (cursor.X != p.X || cursor.Y != p.Y) throw new InvalidOperationException("POINTER_CHANGED: observe target before retrying.");
+            try {
+                if (action == "double_click") Native.DoubleClick(flags.Down, flags.Up);
+                else { Native.Mouse(flags.Down); safety.Delay(30); }
+            } finally { Native.Mouse(flags.Up); }
         }
         return new { verification = "sent", note = "Observe the target again to verify the effect." };
     }

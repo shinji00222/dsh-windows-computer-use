@@ -8,7 +8,7 @@ internal sealed class Engine(Safety safety)
     internal object Execute(string action, Arguments a, string turn, bool indicator) {
         if (action == "health") {
             Native.GetCursorPos(out var cursor);
-            return new { engine = "C#", version = "0.1.0-preview.1", platform = "Windows", stopListener = true, processId = Environment.ProcessId, cursor = new { x = cursor.X, y = cursor.Y } };
+            return new { engine = "C#", version = "0.1.0-preview.2", platform = "Windows", stopListener = safety.ListenerAlive, escapeEvents = safety.EscapeEvents, foregroundWindow = (long)Native.GetForegroundWindow(), processId = Environment.ProcessId, cursor = new { x = cursor.X, y = cursor.Y } };
         }
         if (action == "resume") { safety.Resume(turn); return new { resumed = true }; }
         using var lease = safety.Enter(turn, indicator);
