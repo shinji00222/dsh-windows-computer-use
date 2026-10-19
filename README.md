@@ -64,6 +64,7 @@ dsh plugin --profile desktop add "C:\path\to\dsh-windows-computer-use-0.1.0-prev
 
 ## 已知边界
 
+- Windows 可能拒绝前台激活；遇到 `FOREGROUND_DENIED` 或 `FOCUS_CHANGED` 时停止输入，确认目标窗口后重新观察。本机曾出现一次前台及 Esc 测试失败，后续连续四轮通过，原因仍待定位。
 - 本版没有后台消息输入和 WGC 捕获；后台窗口用 PrintWindow，失败时的屏幕裁剪会标记可能被遮挡。
 - UIA 控件调用可能阻塞。超时会停止并回收工作进程，不自动重放输入；已经送达应用的动作无法撤回。
 - OCR 依赖已安装的 Windows OCR 语言包。坐标匹配是文字定位，不代表理解按钮含义。

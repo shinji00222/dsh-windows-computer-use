@@ -6,6 +6,9 @@ import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import path from 'node:path';
 import vm from 'node:vm';
+import {spawn} from 'node:child_process';
+import {createInterface} from 'node:readline';
+import {once} from 'node:events';
 const runtime=process.argv[2];
 if(!runtime)throw Error('Pass DSH runtime package.json');
 const deadline=setTimeout(()=>{console.error('HOST_INTEGRATION_TIMEOUT');process.exit(1);},20000);
@@ -21,7 +24,7 @@ const adapter=await import(pathToFileURL(path.join(packageRoot,'dist/plugin.js')
 const ctx=new Context();
 const tools=new Map();
 ctx.provide('tools',{register(definition){assert.ok(definition.name.startsWith('mcp__shin_desktop__'));tools.set(definition.name,definition);return ()=>tools.delete(definition.name);}});
-let fiber;
+let fiber,fixture;
 try{
   fiber=ctx.plugin(adapter,adapter.Config({indicatorEnabled:false,readOnly:false}));
   await fiber;
@@ -33,6 +36,35 @@ try{
   const exec={name:health.name,signal:new AbortController().signal,agent:{session:{id:'isolated-fixture'},phase:{kind:'running',turn:1}}};
   const response=await ctx.serial('tools/execute',exec,()=>health.execute({},exec));
   assert.match(JSON.stringify(response),/C#/);
+  // Verify a real input round trip through the installed host bridge, not just health.
+  fixture=spawn(path.join(packageRoot,'native/DesktopEngine.exe'),['--fixture'],{stdio:'pipe',windowsHide:true});
+  const lines=createInterface({input:fixture.stdout});
+  const [ready]=await once(lines,'line');
+  const target={nativeWindowHandle:JSON.parse(ready).hwnd};
+  async function call(action,args={}){
+    const tool=tools.get('mcp__shin_desktop__windows_computer_use_'+action);
+    const execution={...exec,name:tool.name};
+    const result=await ctx.serial('tools/execute',execution,()=>tool.execute({...target,...args},execution));
+    // ToolRuntime may wrap MCP content; locate the JSON text without hiding errors.
+    assert.ok(!JSON.stringify(result).includes('isError\":true'),JSON.stringify(result));
+    function decode(value){
+      if(value&&typeof value==='object'){
+        if(value.type==='text'&&typeof value.text==='string'){
+          try{return JSON.parse(value.text);}catch{}
+        }
+        for(const child of Object.values(value)){const decoded=decode(child);if(decoded)return decoded;}
+      }
+    }
+    const decoded=decode(result);assert.ok(decoded,JSON.stringify(result));return decoded;
+  }
+  let tree=await call('accessibility_tree');
+  const edit=tree.nodes.find(node=>node.automationId==='testInput');assert.ok(edit);
+  await call('activate_window');
+  await call('focus',{elementId:edit.id});
+  await call('type_text',{text:'DSH 桥接中文验证 123',method:'sendinput'});
+  tree=await call('accessibility_tree');
+  assert.equal(tree.nodes.find(node=>node.automationId==='testInput').value,'DSH 桥接中文验证 123');
+  await call('close_window');
   let client;
   vm.runInNewContext(readFileSync(path.join(packageRoot,'dist/client.js'),'utf8'),{window:{__ModuleLoader__:{load:entry=>{client=entry.factory(name=>name==='react'?localRequire(name):hostRequire(name));}}}});
   assert.equal(client.name,'dsh-windows-computer-use');
@@ -41,5 +73,5 @@ try{
   try{await clientCtx.plugin(client);assert.equal(slots[0].entry.id,'dsh-windows-computer-use');}finally{await clientCtx.fiber.dispose();}
   const content=localRequire('react-dom/server').renderToStaticMarkup(localRequire('react').createElement(slots[0].component));
   assert.match(content,/C#/);assert.match(content,/Esc/);
-  console.log(JSON.stringify({passed:true,officialBridge:true,nativeEngine:true,electron:process.versions.electron,tools:tools.size,clientSlot:true}));
-}finally{await ctx.fiber.dispose();hooks.deregister();clearTimeout(deadline);}
+  console.log(JSON.stringify({passed:true,officialBridge:true,nativeEngine:true,unicodeInputReadback:true,electron:process.versions.electron,tools:tools.size,clientSlot:true}));
+}finally{if(fixture?.exitCode===null)fixture.kill();await ctx.fiber.dispose();hooks.deregister();clearTimeout(deadline);}
