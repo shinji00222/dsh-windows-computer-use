@@ -34,14 +34,14 @@ internal sealed class VisualBatch(WindowsUi ui, Safety safety)
             var pending = new Stack<AutomationElement>(); pending.Push(ui.Root(hwnd));
             var items = new List<string>(); var watch = Stopwatch.StartNew();
             while (pending.Count > 0) {
-                if (items.Count >= 160 || watch.ElapsedMilliseconds > 150) return null;
+                if (items.Count >= 160 || watch.ElapsedMilliseconds > 1000) return null;
                 var node = pending.Pop(); var c = node.Current;
                 if (c.IsOffscreen) continue;
                 var name = c.ControlType == ControlType.Edit || c.IsPassword ? "" : c.Name;
                 items.Add($"{c.ControlType.Id}|{c.AutomationId}|{name}|{c.BoundingRectangle}");
                 var child = walker.GetFirstChild(node);
                 while (child is not null) {
-                    if (pending.Count + items.Count >= 160 || watch.ElapsedMilliseconds > 150) return null;
+                    if (pending.Count + items.Count >= 160 || watch.ElapsedMilliseconds > 1000) return null;
                     pending.Push(child); child = walker.GetNextSibling(child);
                 }
             }
@@ -54,7 +54,11 @@ internal sealed class VisualBatch(WindowsUi ui, Safety safety)
         if (Native.Bounds(view.Window) != view.Bounds) throw new InvalidOperationException("WINDOW_MOVED: obtain a new screenshot.");
         ui.AssertForeground(view.Window);
         if (Native.Title(view.Window) != view.Title) throw new InvalidOperationException("VIEW_CHANGED: window title changed.");
-        if (layout && view.Layout is not null && Layout(view.Window) != view.Layout) throw new InvalidOperationException("VIEW_CHANGED: controls changed or can no longer be verified.");
+        if (layout && view.Layout is not null) {
+            var current = Layout(view.Window);
+            if (current is null) throw new InvalidOperationException("VIEW_CHANGED: control inspection incomplete.");
+            if (current != view.Layout) throw new InvalidOperationException("VIEW_CHANGED: controls changed.");
+        }
     }
     internal object Run(nint hwnd, Arguments a) {
         if (!views.TryGetValue(a.Text("screenshotId"), out var view) || view.Window != hwnd ||

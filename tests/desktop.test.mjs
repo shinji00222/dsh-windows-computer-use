@@ -128,7 +128,7 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
       const result=await call('run_batch',{screenshotId:shot.screenshotId,actions:[
         {action:'click',x,y},{action:'keypress',keys:['ctrl','a']},{action:'type_text',text:'一次截图多步执行 BATCH 123'}
       ]},'batch');
-      assert.equal(result.status,'completed',JSON.stringify(result));assert.equal(result.completed,3);assert.equal(result.remaining,0);
+      assert.equal(result.status,'completed',JSON.stringify({...result,screenshot:undefined}));assert.equal(result.completed,3);assert.equal(result.remaining,0);
       assert.ok(result.screenshot.base64.length>100);assert.notEqual(result.screenshotId,shot.screenshotId);
       await assert.rejects(()=>call('run_batch',{screenshotId:shot.screenshotId,actions:[{action:'type_text',text:'must not repeat'}]},'batch'),/STALE_SCREENSHOT/);
       await refresh();assert.equal(node('testInput').value,'一次截图多步执行 BATCH 123');
@@ -152,7 +152,7 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
           {action:'click',x:Math.floor((box.centerX-shot.screenshot.bounds.x)*shot.screenshot.width/shot.screenshot.bounds.width),y:Math.floor((box.centerY-shot.screenshot.bounds.y)*shot.screenshot.height/shot.screenshot.bounds.height)},
           {action:'type_text',text:'MUST_NOT_TYPE'}
         ]},'changed');
-        assert.equal(result.status,'stopped',JSON.stringify(result));assert.equal(result.completed,1);assert.equal(result.remaining,1);
+        assert.equal(result.status,'stopped',JSON.stringify({...result,screenshot:undefined}));assert.equal(result.completed,1);assert.equal(result.remaining,1);
         assert.match(result.reason,/FOCUS_CHANGED|VIEW_CHANGED/);
         if(id==='batchPopup'){
           const windows=await backend.call('list_windows',{});
