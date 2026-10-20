@@ -28,20 +28,20 @@ internal sealed class VisualBatch(WindowsUi ui, Safety safety)
     }
     // Ignore editable values and focus, but notice changed controls, labels and
     // geometry. Unknown/partial UIA is explicitly reported, not treated as proof.
-    private string? Layout(nint hwnd) {
+    internal string? Layout(nint hwnd, int maxNodes = 160, int budgetMs = 1000) {
         try {
             var walker = TreeWalker.ControlViewWalker;
             var pending = new Stack<AutomationElement>(); pending.Push(ui.Root(hwnd));
             var items = new List<string>(); var watch = Stopwatch.StartNew();
             while (pending.Count > 0) {
-                if (items.Count >= 160 || watch.ElapsedMilliseconds > 1000) return null;
+                if (items.Count >= maxNodes || watch.ElapsedMilliseconds > budgetMs) return null;
                 var node = pending.Pop(); var c = node.Current;
                 if (c.IsOffscreen) continue;
                 var name = c.ControlType == ControlType.Edit || c.IsPassword ? "" : c.Name;
                 items.Add($"{c.ControlType.Id}|{c.AutomationId}|{name}|{c.BoundingRectangle}");
                 var child = walker.GetFirstChild(node);
                 while (child is not null) {
-                    if (pending.Count + items.Count >= 160 || watch.ElapsedMilliseconds > 1000) return null;
+                    if (pending.Count + items.Count >= maxNodes || watch.ElapsedMilliseconds > budgetMs) return null;
                     pending.Push(child); child = walker.GetNextSibling(child);
                 }
             }

@@ -6,10 +6,11 @@ internal sealed class Engine(Safety safety)
 {
     private readonly WindowsUi ui = new(safety);
     private VisualBatch? visual;
+    private TextBatch? text;
     internal object Execute(string action, Arguments a, string turn, bool indicator) {
         if (action == "health") {
             Native.GetCursorPos(out var cursor);
-            return new { engine = "C#", version = "0.1.0-preview.3", platform = "Windows", stopListener = safety.ListenerAlive, escapeEvents = safety.EscapeEvents, foregroundWindow = (long)Native.GetForegroundWindow(), processId = Environment.ProcessId, cursor = new { x = cursor.X, y = cursor.Y } };
+            return new { engine = "C#", version = "0.1.0-preview.4", platform = "Windows", stopListener = safety.ListenerAlive, escapeEvents = safety.EscapeEvents, foregroundWindow = (long)Native.GetForegroundWindow(), processId = Environment.ProcessId, cursor = new { x = cursor.X, y = cursor.Y } };
         }
         if (action == "resume") { safety.Resume(turn); return new { resumed = true }; }
         using var lease = safety.Enter(turn, indicator);
@@ -19,6 +20,9 @@ internal sealed class Engine(Safety safety)
         var hwnd = ui.Target(a);
         visual ??= new VisualBatch(ui, safety);
         if (action == "run_batch") return visual.Run(hwnd, a);
+        text ??= new TextBatch(ui, safety);
+        if (action == "observe_text") return text.Observe(hwnd, a);
+        if (action == "run_text_batch") return text.Run(hwnd, a);
         var input = new InputActions(ui, safety);
         switch (action) {
             case "snapshot": case "accessibility_tree": case "find": {

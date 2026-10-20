@@ -11,6 +11,10 @@ test('MCP protocol: discovery, input validation, real native health, read-only e
     const list=await client.listTools();assert.ok(list.tools.some(t=>t.name==='windows_computer_use_screenshot'));
     assert.ok(!list.tools.some(t=>t.name==='windows_computer_use_click'));
     assert.ok(!list.tools.some(t=>t.name==='windows_computer_use_run_batch'));
+    assert.ok(list.tools.some(t=>t.name==='windows_computer_use_observe_text'));
+    assert.ok(!list.tools.some(t=>t.name==='windows_computer_use_run_text_batch'));
+    const blocked=await client.callTool({name:'windows_computer_use_run_text_batch',arguments:{nativeWindowHandle:1,observationId:'fake',actions:[{action:'wait',milliseconds:0}]}});
+    assert.equal(blocked.isError,true);assert.match(blocked.content[0].text,/READ_ONLY/);
     const health=await client.callTool({name:'windows_computer_use_health',arguments:{}});assert.equal(health.isError,undefined);
     assert.equal(JSON.parse(health.content[0].text).engine,'C#');
     const invalid=await client.callTool({name:'windows_computer_use_wait',arguments:{milliseconds:'1'}});assert.equal(invalid.isError,true);

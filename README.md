@@ -4,12 +4,13 @@
 
 这是基于 [Yu-tao-Li/dsh-computer-use-win](https://github.com/Yu-tao-Li/dsh-computer-use-win) 改造的独立项目。我们的侧重点有所不同：用 **C# 原生引擎 + TypeScript 接入层**，把目标窗口绑定、停止机制和结果验证放在前面。感谢原项目及更早上游 [cgissing/windows-computer-use](https://github.com/cgissing/windows-computer-use) 的工作，来源和许可见 [NOTICE.md](NOTICE.md)。
 
-当前是 **0.1.0-preview.3 预览版**，面向 Windows x64 和愿意测试的 DSH Desktop 用户。
+当前源码是 **0.1.0-preview.4 开发预览版**（尚未发布；已发布安装包见 Releases），面向 Windows x64 和愿意测试的 DSH Desktop 用户。
 
 ## 能做什么
 
 - 读取 Windows 控件、查找窗口和按钮；UIA 不完整时可用 Windows OCR 或截图。
 - 点击、双击、拖动、滚动、输入中文、快捷键、控件赋值和窗口管理。
+- 纯文本批量操作：读取控件编号，连续填写并回读，不需要图片模型；点击和按键后重新观察。
 - 看图批量操作：一张截图规划最多 8 个动作，一次执行后返回最终截图和逐步结果，减少模型往返。
 - 操作前要求观察目标窗口。窗口移动、焦点变化、目标不明确或观察过期时拒绝盲目输入。
 - 独立线程监听 Esc，停止后当前轮不能继续输入；新的用户请求可继续。
@@ -37,7 +38,7 @@ npm run package:local
 下载 Release 的 `.tgz`（也可自行构建），在 **Desktop 自带终端**安装，替换成实际绝对路径：
 
 ```powershell
-dsh plugin --profile desktop add "C:\path\to\dsh-windows-computer-use-0.1.0-preview.3.tgz"
+dsh plugin --profile desktop add "C:\path\to\dsh-windows-computer-use-0.1.0-preview.4.tgz"
 ```
 
 完整退出并重开 DSH。插件配置提供操作提示和只读模式，客户端插件卡片解释操作与停止规则。工具名前缀为 `mcp__shin_desktop__windows_computer_use_`。
@@ -47,6 +48,18 @@ dsh plugin --profile desktop add "C:\path\to\dsh-windows-computer-use-0.1.0-prev
 > 列出窗口，确认测试用记事本的 HWND，观察后输入“你好”，再读取文本确认。只操作这个测试窗口。
 
 两个电脑控制插件同时操作会争抢桌面，请在使用时只选择一套。此项目的跨进程互斥只约束本项目的引擎，无法约束其他软件。
+
+## 纯文本 DS：读取控件、批量填写
+
+默认使用 `observe_text → run_text_batch → 新的文字观察`。例如：
+
+> 用文字控件工具读取这个测试表单，填写姓名和城市，核对填入的值，再单独提交并读取结果。不要使用截图批量工具。
+
+一次最多 8 步，用观察结果中的 `reference` 指定控件。`fill` 只接受 `canFill=true` 的非密码输入框，用 UIA 赋值并回读；不支持的输入框不会自动改用盲打。每项最多 2000 字，不接受换行或 Tab。编号一分钟有效，只属于本次观察；新观察或执行后旧编号失效。
+
+`click` 和所有 `keypress` 都结束当前批次，不能一口气跨页面。填写后返回的值证明控件值已改变，不代表网页已经接受或提交；提交结果必须再读取页面确认。控件结构无法完整检查时拒绝批量操作，可改用原有单步工具。
+
+可用 `includeOcr=true` 补充文字识别，OCR 仅作为文字证据，不生成可点击编号。首版优先测试 Edge 普通表单，自绘界面不保证可用；不安装浏览器扩展、不连接 DOM，也不需要额外视觉 API。
 
 ## 一张截图，多个动作
 

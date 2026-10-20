@@ -15,6 +15,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - run: node scripts/verify-browser-text.mjs
       - run: npm run package:local
       - uses: actions/upload-artifact@v4
         with:

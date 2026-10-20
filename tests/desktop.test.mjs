@@ -198,6 +198,44 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
       await assert.rejects(()=>backend.call('wait',{milliseconds:1},'escape'),/STOPPED_BY_USER/);
       await backend.call('wait',{milliseconds:1},'after-escape');
     });
+    await t.test('text batch reads back values, prevalidates refs, consumes observations and checkpoints',async()=>{
+      await refresh();await call('move_window',{x:20,y:20});await refresh();await call('activate_window');
+      let observed=await call('observe_text');
+      assert.equal(observed.batchAvailable,true);assert.ok(!JSON.stringify(observed).includes('base64'));
+      const edit=observed.nodes.find(n=>n.canFill);assert.ok(edit);
+      await assert.rejects(()=>call('run_text_batch',{observationId:observed.observationId,actions:[
+        {action:'fill',reference:edit.reference,text:'MUST_NOT_TYPE'},{action:'focus',reference:'missing'}]}),/UNKNOWN_REFERENCE/);
+      const result=await call('run_text_batch',{observationId:observed.observationId,actions:[
+        {action:'fill',reference:edit.reference,text:'文本批量 123'},{action:'focus',reference:edit.reference} ]});
+      assert.equal(result.status,'completed',JSON.stringify(result));assert.equal(result.completed,2);
+      assert.equal(result.steps[0].verification,'observed');assert.equal(result.steps[0].value,'文本批量 123');
+      await assert.rejects(()=>call('run_text_batch',{observationId:observed.observationId,actions:[{action:'wait',milliseconds:0}]}),/STALE_OBSERVATION/);
+      observed=result.observation;
+      const checkpoint=await call('run_text_batch',{observationId:observed.observationId,actions:[{action:'keypress',keys:['tab']},{action:'wait',milliseconds:0}]});
+      assert.equal(checkpoint.status,'checkpoint',JSON.stringify(checkpoint));assert.equal(checkpoint.completed,1);
+      observed=await call('observe_text');const password=observed.nodes.find(n=>n.password);assert.ok(password);
+      await assert.rejects(()=>call('run_text_batch',{observationId:observed.observationId,actions:[{action:'fill',reference:password.reference,text:'secret'}]}),/CONTROL_UNAVAILABLE/);
+      await call('move_window',{x:30,y:30});
+      await assert.rejects(()=>call('run_text_batch',{observationId:observed.observationId,actions:[{action:'wait',milliseconds:0}]}),/WINDOW_MOVED/);
+    });
+    await t.test('text observations invalidate older refs and changed controls before dispatch',async()=>{
+      await refresh();await call('activate_window');
+      const old=await call('observe_text');const current=await call('observe_text');
+      await assert.rejects(()=>call('run_text_batch',{observationId:old.observationId,actions:[{action:'wait',milliseconds:0}]}),/STALE_OBSERVATION/);
+      await refresh();await call('set_value',{elementId:node('testInput').id,value:'unchanged baseline'});
+      const edit=current.nodes.find(n=>n.canFill);assert.ok(edit);
+      await assert.rejects(()=>call('run_text_batch',{observationId:current.observationId,actions:[{action:'fill',reference:edit.reference,text:'bad\nvalue'}]}),/INVALID_FILL_TEXT/);
+      await call('move_window',{x:40,y:40});
+      await assert.rejects(()=>call('run_text_batch',{observationId:current.observationId,actions:[{action:'fill',reference:edit.reference,text:'MUST_NOT_TYPE'}]}),/WINDOW_MOVED/);
+      await refresh();assert.equal(node('testInput').value,'unchanged baseline');
+    });
+    await t.test('text batch Escape returns partial evidence and blocks the same turn',async()=>{
+      await refresh();await call('activate_window');const shot=await call('observe_text');
+      const result=await call('run_text_batch',{observationId:shot.observationId,actions:[{action:'keypress',keys:['escape']},{action:'wait',milliseconds:0}]},'text-escape');
+      assert.equal(result.status,'stopped');assert.match(result.reason,/STOPPED_BY_USER/);
+      assert.ok(result.remaining>=1);assert.equal(result.attempted,1);await backend.close();
+      await assert.rejects(()=>backend.call('wait',{milliseconds:1},'text-escape'),/STOPPED_BY_USER/);
+    });
     await t.test('graceful close targets only owned fixture',async()=>{
       await refresh();await call('close_window');
       const exit=await call('wait_for',{condition:'window',appear:false,timeoutMs:3000});assert.equal(exit.verification,'observed');

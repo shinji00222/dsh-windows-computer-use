@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><title>DSH Text Batch Browser Fixture</title>
+<style>body{font:20px sans-serif;margin:40px;max-width:700px}label{display:block;margin:20px 0}input,button{font:inherit;padding:8px}#result{white-space:pre-wrap}</style>
+<h1>电脑控制测试表单</h1>
+<p>仅使用虚构测试数据。填写两个字段后提交。</p>
+<form id="form">
+<label>测试姓名 <input id="person" aria-label="测试姓名" autocomplete="off"></label>
+<label>测试城市 <input id="city" aria-label="测试城市" autocomplete="off"></label>
+<button type="submit">提交测试</button>
+</form>
+<p id="result" role="status">等待提交</p>
+<script>
+document.getElementById('form').onsubmit=e=>{
+  e.preventDefault();
+  const person=document.getElementById('person').value,city=document.getElementById('city').value;
+  document.getElementById('result').textContent=`提交成功：${person} / ${city}`;
+};
+</script></html>

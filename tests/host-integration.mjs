@@ -34,7 +34,7 @@ let fiber,fixture;
 try{
   fiber=ctx.plugin(adapter,adapter.Config({indicatorEnabled:false,readOnly:false}));
   await fiber;
-  assert.equal(tools.size,25,`Only ${tools.size} tools registered`);
+  assert.equal(tools.size,27,`Only ${tools.size} tools registered`);
   assert.ok(tools.has('mcp__shin_desktop__windows_computer_use_type_text'));
   const health=tools.get('mcp__shin_desktop__windows_computer_use_health');
   // Real Cordis hook publishes a user turn; the actual official MCP bridge
@@ -85,10 +85,17 @@ try{
   ];
   imageCapable=false;
   await assert.rejects(()=>call('run_batch',{screenshotId:shot.screenshotId,actions}),/VISION_MODEL_REQUIRED/);
+  const textView=await call('observe_text');
+  const textEdit=textView.nodes.find(n=>n.canFill);assert.ok(textEdit);
+  const textBatch=await call('run_text_batch',{observationId:textView.observationId,actions:[{action:'fill',reference:textEdit.reference,text:'纯文本宿主验证'}]});
+  assert.equal(textBatch.status,'completed',JSON.stringify(textBatch));assert.equal(textBatch.steps[0].value,'纯文本宿主验证');
+  assert.equal(projectedImages.length,1,'Text-only batch does not project images');
   imageCapable=true;
-  const batch=await call('run_batch',{screenshotId:shot.screenshotId,actions});
+  // A text observation supersedes the UI observation used by the older visual shot.
+  const fresh=await call('screenshot',{maxWidth:340});
+  const batch=await call('run_batch',{screenshotId:fresh.screenshotId,actions});
   assert.equal(batch.status,'completed',JSON.stringify(batch));assert.equal(batch.completed,3);
-  assert.equal(projectedImages.length,2,'Exactly initial and final images, no per-action screenshots');
+  assert.equal(projectedImages.length,3,'Two explicit screenshots and one visual batch result; text batch adds none');
   tree=await call('accessibility_tree');
   assert.equal(tree.nodes.find(node=>node.automationId==='testInput').value,'DSH 看图批量输入成功');
   await call('close_window');
@@ -99,6 +106,6 @@ try{
   const clientCtx=new Context();clientCtx.provide('slots',{inject:(_name,register)=>register(),register:(entry,component)=>{slots.push({entry,component});return ()=>{};}});
   try{await clientCtx.plugin(client);assert.equal(slots[0].entry.id,'dsh-windows-computer-use');}finally{await clientCtx.fiber.dispose();}
   const content=localRequire('react-dom/server').renderToStaticMarkup(localRequire('react').createElement(slots[0].component));
-  assert.match(content,/C#/);assert.match(content,/Esc/);
-  console.log(JSON.stringify({passed:true,officialBridge:true,nativeEngine:true,unicodeInputReadback:true,visualBatch:true,durableImageProjection:true,imageCount:projectedImages.length,textOnlyModelRejected:true,electron:process.versions.electron,tools:tools.size,clientSlot:true}));
+  assert.match(content,/纯文本 DS/);assert.match(content,/Esc/);
+  console.log(JSON.stringify({passed:true,officialBridge:true,nativeEngine:true,unicodeInputReadback:true,visualBatch:true,durableImageProjection:true,imageCount:projectedImages.length,textOnlyModelRejected:true,textOnlyBatch:true,electron:process.versions.electron,tools:tools.size,clientSlot:true}));
 }finally{if(fixture?.exitCode===null)fixture.kill();await ctx.fiber.dispose();hooks.deregister();clearTimeout(deadline);}
