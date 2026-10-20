@@ -1,6 +1,8 @@
 // Derived from upstream tool contracts; see NOTICE.md. MIT.
 import type {Tool} from "@modelcontextprotocol/sdk/types.js";
+import {batchTool} from './batch-schema.js';
 export const catalog: Tool[] = [
+  batchTool,
   {
     "name": "windows_computer_use_health",
     "description": "Check that the Windows UI Automation backend, screenshot capture, and input stack are available.",

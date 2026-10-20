@@ -81,11 +81,15 @@ internal sealed class InputActions(WindowsUi ui, Safety safety)
     }
     private void Chord(nint hwnd, Arguments a, string[] keys) {
         ui.Foreground(hwnd, a); safety.Check();
-        var codes = keys.Select(KeyCode).ToArray();
-        if (codes.Count(c => c is not (16 or 17 or 18)) != 1 || codes.Distinct().Count() != codes.Length) throw new InvalidOperationException("INVALID_KEY_CHORD");
+        var codes = ValidateChord(keys);
         var held = new List<ushort>();
         try { foreach (var code in codes) { safety.Check(); Native.Key(code, false); held.Add(code); } safety.Delay(30); }
         finally { foreach (var code in held.AsEnumerable().Reverse()) Native.Key(code, true); }
+    }
+    internal static ushort[] ValidateChord(string[] keys) {
+        var codes = keys.Select(KeyCode).ToArray();
+        if (codes.Count(c => c is not (16 or 17 or 18)) != 1 || codes.Distinct().Count() != codes.Length) throw new InvalidOperationException("INVALID_KEY_CHORD");
+        return codes;
     }
     private static ushort KeyCode(string key) {
         if (key.Equals("win", StringComparison.OrdinalIgnoreCase) || key.Equals("windows", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("WINDOWS_KEY_UNSUPPORTED");

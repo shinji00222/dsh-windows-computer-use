@@ -5,10 +5,11 @@ namespace DesktopNative;
 internal sealed class Engine(Safety safety)
 {
     private readonly WindowsUi ui = new(safety);
+    private VisualBatch? visual;
     internal object Execute(string action, Arguments a, string turn, bool indicator) {
         if (action == "health") {
             Native.GetCursorPos(out var cursor);
-            return new { engine = "C#", version = "0.1.0-preview.2", platform = "Windows", stopListener = safety.ListenerAlive, escapeEvents = safety.EscapeEvents, foregroundWindow = (long)Native.GetForegroundWindow(), processId = Environment.ProcessId, cursor = new { x = cursor.X, y = cursor.Y } };
+            return new { engine = "C#", version = "0.1.0-preview.3", platform = "Windows", stopListener = safety.ListenerAlive, escapeEvents = safety.EscapeEvents, foregroundWindow = (long)Native.GetForegroundWindow(), processId = Environment.ProcessId, cursor = new { x = cursor.X, y = cursor.Y } };
         }
         if (action == "resume") { safety.Resume(turn); return new { resumed = true }; }
         using var lease = safety.Enter(turn, indicator);
@@ -16,6 +17,8 @@ internal sealed class Engine(Safety safety)
         if (action == "list_windows") return new { windows = ui.Enumerate(a).Take(a.Int("maxWindows", 50)).Select(h => ui.Window(h)).ToArray() };
         if (action == "wait_for") return WaitFor(a);
         var hwnd = ui.Target(a);
+        visual ??= new VisualBatch(ui, safety);
+        if (action == "run_batch") return visual.Run(hwnd, a);
         var input = new InputActions(ui, safety);
         switch (action) {
             case "snapshot": case "accessibility_tree": case "find": {
@@ -28,6 +31,7 @@ internal sealed class Engine(Safety safety)
             }
             case "screenshot": case "ocr": {
                 if (a.Bool("activate")) ui.Activate(hwnd);
+                if (action == "screenshot" && a.Text("scope") != "desktop") return visual.Observe(hwnd, a);
                 ui.Observe(hwnd); var frame = Capture.Take(hwnd, a);
                 return action == "screenshot" ? new { screenshot = Capture.Image(frame), window = ui.Window(hwnd, false) } :
                     new { ocr = Capture.Ocr(frame, a), screenshot = a.Bool("includeScreenshot") ? Capture.Image(frame) : null, window = ui.Window(hwnd, false) };

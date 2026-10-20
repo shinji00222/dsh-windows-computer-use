@@ -119,6 +119,73 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
       await assert.rejects(()=>backend.call('wait',{milliseconds:1},'cancelled'),/STOPPED_BY_USER/);
       await backend.call('wait',{milliseconds:1},'new-human-turn');
     });
+    await t.test('one screenshot runs multiple actions in screenshot coordinates and returns a final image',async()=>{
+      await refresh();await call('activate_window');
+      const box=node('testInput').boundingBox;
+      const shot=await call('screenshot',{maxWidth:340});
+      const x=Math.floor((box.centerX-shot.screenshot.bounds.x)*shot.screenshot.width/shot.screenshot.bounds.width);
+      const y=Math.floor((box.centerY-shot.screenshot.bounds.y)*shot.screenshot.height/shot.screenshot.bounds.height);
+      const result=await call('run_batch',{screenshotId:shot.screenshotId,actions:[
+        {action:'click',x,y},{action:'keypress',keys:['ctrl','a']},{action:'type_text',text:'一次截图多步执行 BATCH 123'}
+      ]},'batch');
+      assert.equal(result.status,'completed',JSON.stringify(result));assert.equal(result.completed,3);assert.equal(result.remaining,0);
+      assert.ok(result.screenshot.base64.length>100);assert.notEqual(result.screenshotId,shot.screenshotId);
+      await assert.rejects(()=>call('run_batch',{screenshotId:shot.screenshotId,actions:[{action:'type_text',text:'must not repeat'}]},'batch'),/STALE_SCREENSHOT/);
+      await refresh();assert.equal(node('testInput').value,'一次截图多步执行 BATCH 123');
+    });
+    await t.test('batch validates all steps before input and checkpoints leave later steps untouched',async()=>{
+      const shot=await call('screenshot');
+      await assert.rejects(()=>call('run_batch',{screenshotId:shot.screenshotId,actions:[
+        {action:'type_text',text:'MUST_NOT_TYPE'},{action:'click',x:999999,y:1}
+      ]},'validate'),/POINT_OUTSIDE_SCREENSHOT/);
+      const result=await call('run_batch',{screenshotId:shot.screenshotId,actions:[
+        {action:'wait',milliseconds:1,checkpoint:true},{action:'type_text',text:'MUST_NOT_TYPE'}
+      ]},'validate');
+      assert.equal(result.status,'checkpoint');assert.equal(result.completed,1);assert.equal(result.remaining,1);
+      await refresh();assert.equal(node('testInput').value,'一次截图多步执行 BATCH 123');
+    });
+    await t.test('batch stops on page-title changes and popup focus before remaining input',async()=>{
+      for(const id of ['batchPopup','batchLayout','batchChange']){
+        await refresh();await call('activate_window');const box=node(id).boundingBox;
+        const shot=await call('screenshot');
+        const result=await call('run_batch',{screenshotId:shot.screenshotId,actions:[
+          {action:'click',x:Math.floor((box.centerX-shot.screenshot.bounds.x)*shot.screenshot.width/shot.screenshot.bounds.width),y:Math.floor((box.centerY-shot.screenshot.bounds.y)*shot.screenshot.height/shot.screenshot.bounds.height)},
+          {action:'type_text',text:'MUST_NOT_TYPE'}
+        ]},'changed');
+        assert.equal(result.status,'stopped',JSON.stringify(result));assert.equal(result.completed,1);assert.equal(result.remaining,1);
+        assert.match(result.reason,/FOCUS_CHANGED|VIEW_CHANGED/);
+        if(id==='batchPopup'){
+          const windows=await backend.call('list_windows',{});
+          const popup=windows.windows.find(w=>w.name==='DSH Batch Owned Popup'&&w.processId===startup.processId);assert.ok(popup);
+          await backend.call('close_window',{nativeWindowHandle:popup.nativeWindowHandle});
+          await backend.call('wait_for',{nativeWindowHandle:popup.nativeWindowHandle,condition:'window',appear:false,timeoutMs:2000});
+        }
+      }
+      await refresh();assert.equal(node('testInput').value,'一次截图多步执行 BATCH 123');
+    });
+    await t.test('moved screenshots and cancellation never dispatch remaining batch input',async()=>{
+      await refresh();await call('activate_window');const shot=await call('screenshot');
+      await call('move_window',{x:350,y:240});
+      await assert.rejects(()=>call('run_batch',{screenshotId:shot.screenshotId,actions:[{action:'type_text',text:'MUST_NOT_TYPE'}]},'moved'),/OBSERVATION_REQUIRED|WINDOW_MOVED/);
+      await call('screenshot');await call('activate_window');const current=await call('screenshot');
+      const controller=new AbortController();
+      const pending=backend.call('run_batch',{...target,screenshotId:current.screenshotId,actions:[{action:'wait',milliseconds:1000},{action:'type_text',text:'MUST_NOT_TYPE'}]},'batch-cancel',controller.signal);
+      setTimeout(()=>controller.abort(),150);
+      await assert.rejects(()=>pending,/CANCELLED|STOPPED_BY_USER/);
+      await assert.rejects(()=>backend.call('wait',{milliseconds:1},'batch-cancel'),/STOPPED_BY_USER/);
+      await refresh();assert.equal(node('testInput').value,'一次截图多步执行 BATCH 123');
+    });
+    await t.test('Escape inside a batch stops remaining steps and preserves final evidence',async()=>{
+      await refresh();await call('activate_window');const shot=await call('screenshot');
+      const result=await call('run_batch',{screenshotId:shot.screenshotId,actions:[
+        {action:'keypress',keys:['escape']},{action:'type_text',text:'MUST_NOT_TYPE'}
+      ]},'batch-escape');
+      assert.equal(result.status,'stopped');assert.match(result.reason,/STOPPED_BY_USER/);assert.ok(result.remaining>=1);
+      assert.ok(result.screenshot.base64.length>100);
+      await backend.close(); // Esc state must also survive native worker restart.
+      await assert.rejects(()=>backend.call('wait',{milliseconds:1},'batch-escape'),/STOPPED_BY_USER/);
+      await refresh();assert.equal(node('testInput').value,'一次截图多步执行 BATCH 123');
+    });
     await t.test('native Escape hook stops this turn; new human turn may continue',async()=>{
       await refresh();await call('activate_window');
       const before=await backend.call('health');

@@ -57,7 +57,14 @@ export class Backend {
       },timeout);
       const removeAbort=()=>{signal?.removeEventListener('abort',abort);if(grace)clearTimeout(grace);};
       const rejectResult=(error:Error)=>{if(/STOPPED_BY_USER/.test(error.message))this.blockedTurns.add(turnId);reject(error);};
-      this.pending.set(id,{resolve:v=>expired?rejectResult(new Error('NATIVE_TIMEOUT')):signal?.aborted?rejectResult(new Error('CANCELLED_AFTER_CURRENT_ACTION')):resolve(v),reject:rejectResult,timer,removeAbort});
+      this.pending.set(id,{resolve:v=>{
+        // Batch partial results preserve their screenshot instead of throwing.
+        // Still persist Esc across a native worker restart for this human turn.
+        if(typeof v.reason==='string'&&v.reason.includes('STOPPED_BY_USER'))this.blockedTurns.add(turnId);
+        if(expired)rejectResult(new Error('NATIVE_TIMEOUT'));
+        else if(signal?.aborted)rejectResult(new Error('CANCELLED_AFTER_CURRENT_ACTION'));
+        else resolve(v);
+      },reject:rejectResult,timer,removeAbort});
       signal?.addEventListener('abort',abort,{once:true});
       child.stdin.write(JSON.stringify({id,action,args,turnId,indicator:this.options.indicator??true})+'\n',error=>{if(error)this.fail(child,error);});
     });

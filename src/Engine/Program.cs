@@ -26,7 +26,7 @@ internal static class Program
                 }
             } finally { queue.CompleteAdding(); }
         });
-        Reply(new { ready = true, version = "0.1.0-preview.2" });
+        Reply(new { ready = true, version = "0.1.0-preview.3" });
         foreach (var request in queue.GetConsumingEnumerable()) {
             var id = request.GetProperty("id").GetInt32();
             try {
@@ -35,7 +35,7 @@ internal static class Program
                 var turn = request.TryGetProperty("turnId", out var tv) ? tv.GetString() ?? "standalone" : "standalone";
                 var indicator = !request.TryGetProperty("indicator", out var iv) || iv.GetBoolean();
                 var result = engine.Execute(action, a, turn, indicator);
-                if (action is not ("health" or "resume")) safety.Check();
+                if (action is not ("health" or "resume" or "run_batch")) safety.Check();
                 Reply(new { id, ok = true, result });
             } catch (Exception e) { Reply(new { id, ok = false, error = e.Message, errorType = e.GetType().Name }); }
         }

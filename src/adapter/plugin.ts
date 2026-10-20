@@ -13,6 +13,7 @@ export const Config=z.object({
 export interface ConfigValue{indicatorEnabled:boolean;readOnly:boolean}
 interface Execution{ name:string; signal?:AbortSignal; agent?:{session?:{id:string};phase?:{kind:string;turn:number}} }
 interface HostContext{
+  get(name:string):any;
   on(event:string,handler:(...args:any[])=>unknown,options?:{global:boolean}):unknown;
   effect(effect:()=>()=>void):unknown;
   plugin(plugin:unknown,config:Record<string,unknown>):PromiseLike<unknown>;
@@ -36,6 +37,18 @@ export async function apply(ctx:HostContext,config:ConfigValue):Promise<void>{
     if(!exec.name.startsWith('mcp__shin_desktop__windows_computer_use_'))return next();
     const session=exec.agent?.session,phase=exec.agent?.phase;
     if(!session||phase?.kind!=='running')throw new Error('NO_ACTIVE_USER_TURN');
+    if(exec.name.endsWith('__windows_computer_use_run_batch')){
+      // Mirror the official bridge's image admission requirement. Never silently
+      // run a screenshot-driven batch for a route that cannot receive images.
+      const agent=exec.agent as any;
+      const route=agent.session.requestHeader?.()?.config;
+      const provider=route?.provider??agent.options?.provider;
+      const model=route?.model??agent.options?.model;
+      const llm=ctx.get('llm');
+      if(!ctx.get('attachments')||!llm||!provider||!model)throw new Error('VISION_MODEL_REQUIRED: select an image-capable DSH model and enable attachments before visual batches.');
+      const info=await llm.resolveModelInfo(provider,model,exec.signal);
+      if(!info.inputModalities?.includes('image'))throw new Error('VISION_MODEL_REQUIRED: current DSH model does not declare image input.');
+    }
     if(owner&&owner.session!==session.id)throw new Error('DESKTOP_BUSY: another DSH conversation owns this turn.');
     const current=owner??={session:session.id,turn:phase.turn,pending:0};
     current.turn=phase.turn;current.pending++;publish(JSON.stringify([current.session,current.turn]));

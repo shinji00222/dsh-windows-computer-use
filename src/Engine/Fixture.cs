@@ -25,7 +25,13 @@ internal static class Fixture
         var clipboardCheck = new Forms.Button { Name = "clipboardCheck", Text = "检查剪贴板", Left = 24, Top = 530, Width = 170, Height = 36 };
         clipboardCheck.Click += (_, _) => pointerStatus.Text = clipboardBaseline == (Forms.Clipboard.ContainsText() ? Forms.Clipboard.GetText() : null) ? "CLIPBOARD_RESTORED" : "CLIPBOARD_CHANGED";
         var ocrLabel = new Forms.Label { Text = "NATIVE TEST 12345", Left = 24, Top = 400, Width = 600, Height = 60, Font = new System.Drawing.Font("Arial", 18) };
-        form.Controls.AddRange([edit, label, button, stop, password, ocrLabel, pointerStatus, clipboardCheck]);
+        var change = new Forms.Button { Name = "batchChange", Text = "Change page", Left = 360, Top = 20, Width = 110, Height = 36 };
+        change.Click += (_, _) => form.Text = "DSH Native Changed Page";
+        var popup = new Forms.Button { Name = "batchPopup", Text = "Popup", Left = 480, Top = 20, Width = 110, Height = 36 };
+        popup.Click += (_, _) => new Forms.Form { Text = "DSH Batch Owned Popup", Width = 300, Height = 200 }.Show(form);
+        var layout = new Forms.Button { Name = "batchLayout", Text = "Change controls", Left = 220, Top = 530, Width = 170, Height = 36 };
+        layout.Click += (_, _) => label.Text = "CONTROL LAYOUT CHANGED";
+        form.Controls.AddRange([edit, label, button, stop, password, ocrLabel, pointerStatus, clipboardCheck, change, popup, layout]);
         form.Shown += (_, _) => {
             // Child process console hiding can also affect its initial ShowWindow.
             // Explicitly show only this owned fixture, then report real visibility.
