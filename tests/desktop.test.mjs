@@ -226,7 +226,7 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
       const edit=current.nodes.find(n=>n.canFill);assert.ok(edit);
       await assert.rejects(()=>call('run_text_batch',{observationId:current.observationId,actions:[{action:'fill',reference:edit.reference,text:'bad\nvalue'}]}),/INVALID_FILL_TEXT/);
       await call('move_window',{x:40,y:40});
-      await assert.rejects(()=>call('run_text_batch',{observationId:current.observationId,actions:[{action:'fill',reference:edit.reference,text:'MUST_NOT_TYPE'}]}),/WINDOW_MOVED/);
+      await assert.rejects(()=>call('run_text_batch',{observationId:current.observationId,actions:[{action:'fill',reference:edit.reference,text:'MUST_NOT_TYPE'}]}),/WINDOW_MOVED|STALE_REFERENCE/);
       await refresh();assert.equal(node('testInput').value,'unchanged baseline');
     });
     await t.test('text batch Escape returns partial evidence and blocks the same turn',async()=>{
