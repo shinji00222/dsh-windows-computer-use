@@ -120,7 +120,7 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
       await backend.call('wait',{milliseconds:1},'new-human-turn');
     });
     await t.test('one screenshot runs multiple actions in screenshot coordinates and returns a final image',async()=>{
-      await refresh();await call('activate_window');
+      await refresh();await call('move_window',{x:20,y:20});await refresh();await call('activate_window');
       const box=node('testInput').boundingBox;
       const shot=await call('screenshot',{maxWidth:340});
       const x=Math.floor((box.centerX-shot.screenshot.bounds.x)*shot.screenshot.width/shot.screenshot.bounds.width);
@@ -141,7 +141,7 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
       const result=await call('run_batch',{screenshotId:shot.screenshotId,actions:[
         {action:'wait',milliseconds:1,checkpoint:true},{action:'type_text',text:'MUST_NOT_TYPE'}
       ]},'validate');
-      assert.equal(result.status,'checkpoint');assert.equal(result.completed,1);assert.equal(result.remaining,1);
+      assert.equal(result.status,'checkpoint');assert.equal(result.completed,1,JSON.stringify({...result,screenshot:undefined}));assert.equal(result.remaining,1);
       await refresh();assert.equal(node('testInput').value,'一次截图多步执行 BATCH 123');
     });
     await t.test('batch stops on page-title changes and popup focus before remaining input',async()=>{
@@ -152,7 +152,7 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
           {action:'click',x:Math.floor((box.centerX-shot.screenshot.bounds.x)*shot.screenshot.width/shot.screenshot.bounds.width),y:Math.floor((box.centerY-shot.screenshot.bounds.y)*shot.screenshot.height/shot.screenshot.bounds.height)},
           {action:'type_text',text:'MUST_NOT_TYPE'}
         ]},'changed');
-        assert.equal(result.status,'stopped',JSON.stringify({...result,screenshot:undefined}));assert.equal(result.completed,1);assert.equal(result.remaining,1);
+        assert.equal(result.status,'stopped',JSON.stringify({...result,screenshot:undefined}));assert.equal(result.completed,1,JSON.stringify({...result,screenshot:undefined}));assert.equal(result.remaining,1);
         assert.match(result.reason,/FOCUS_CHANGED|VIEW_CHANGED/);
         if(id==='batchPopup'){
           const windows=await backend.call('list_windows',{});
