@@ -205,6 +205,7 @@ test('C# engine: real owned Windows fixture', {timeout:120000},async t=>{
       const edit=observed.nodes.find(n=>n.canFill);assert.ok(edit);
       await assert.rejects(()=>call('run_text_batch',{observationId:observed.observationId,actions:[
         {action:'fill',reference:edit.reference,text:'MUST_NOT_TYPE'},{action:'focus',reference:'missing'}]}),/UNKNOWN_REFERENCE/);
+      await refresh();assert.equal(node('testInput').value,edit.value,'All-step validation must precede any input');
       const result=await call('run_text_batch',{observationId:observed.observationId,actions:[
         {action:'fill',reference:edit.reference,text:'文本批量 123'},{action:'focus',reference:edit.reference} ]});
       assert.equal(result.status,'completed',JSON.stringify(result));assert.equal(result.completed,2);

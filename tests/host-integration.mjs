@@ -42,6 +42,19 @@ try{
   const exec={name:health.name,signal:new AbortController().signal,agent:{session:{id:'isolated-fixture',requestHeader:()=>({config:{provider:'test-route',model:'fixture-vision'}})},phase:{kind:'running',turn:1}}};
   const response=await ctx.serial('tools/execute',exec,()=>health.execute({},exec));
   assert.match(JSON.stringify(response),/C#/);
+  if(process.env.DSH_TEST_ADMISSION_ONLY==='1'){
+    imageCapable=false;
+    for(const action of ['observe_text','run_text_batch']){
+      const tool=tools.get('mcp__shin_desktop__windows_computer_use_'+action);assert.ok(tool);
+      const execution={...exec,name:tool.name};
+      const args=action==='observe_text'?{nativeWindowHandle:2147483647}:{nativeWindowHandle:2147483647,observationId:'invalid-test-ref',actions:[{action:'wait',milliseconds:0}]};
+      await assert.rejects(()=>ctx.serial('tools/execute',execution,()=>tool.execute(args,execution)),/WINDOW_NOT_FOUND/);
+    }
+    const visual=tools.get('mcp__shin_desktop__windows_computer_use_run_batch');
+    const execution={...exec,name:visual.name};
+    await assert.rejects(()=>ctx.serial('tools/execute',execution,()=>visual.execute({},execution)),/VISION_MODEL_REQUIRED/);
+    console.log(JSON.stringify({passed:true,officialBridge:true,tools:tools.size,textOnlyAdmission:true,invalidTargetRejected:true,noDesktopInput:true,realModel:false}));
+  }else{
   // Verify a real input round trip through the installed host bridge, not just health.
   fixture=spawn(path.join(packageRoot,'native/DesktopEngine.exe'),['--fixture'],{stdio:'pipe',windowsHide:true});
   const lines=createInterface({input:fixture.stdout});
@@ -108,4 +121,5 @@ try{
   const content=localRequire('react-dom/server').renderToStaticMarkup(localRequire('react').createElement(slots[0].component));
   assert.match(content,/纯文本 DS/);assert.match(content,/Esc/);
   console.log(JSON.stringify({passed:true,officialBridge:true,nativeEngine:true,unicodeInputReadback:true,visualBatch:true,durableImageProjection:true,imageCount:projectedImages.length,textOnlyModelRejected:true,textOnlyBatch:true,electron:process.versions.electron,tools:tools.size,clientSlot:true}));
+  }
 }finally{if(fixture?.exitCode===null)fixture.kill();await ctx.fiber.dispose();hooks.deregister();clearTimeout(deadline);}

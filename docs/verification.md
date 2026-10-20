@@ -4,6 +4,10 @@
 
 本机 Edge 测试在前台激活阶段返回 FOREGROUND_DENIED，未进入表单填写。用户选择稍后再测：停止本机桌面回归，使用独立 GitHub Windows runner 验证。真实 DS 模型自主完成网页任务和最终安装包宿主验收仍待执行。
 
+后续远端验证：代码提交 8c7dce4 的 [Windows CI](https://github.com/shinji00222/dsh-windows-computer-use/actions/runs/39417256952) 通过 27 项回归，以及 Edge 双字段赋值、回读、单独提交、页面结果确认。初次远端失败为测试只接受 WINDOW_MOVED，但实际更早检测到 STALE_REFERENCE；保留输入不得执行、原值不变的断言。
+
+开发 tgz 另通过隔离 DSH 安装与不输入桌面的宿主检查：27 工具、纯文本路由进入新工具、无效目标拒绝、视觉模式图片要求保留。实际模型自主任务仍未验证。
+
 ---
 
 # 第一版验证记录
