@@ -1,7 +1,9 @@
 // Derived from upstream tool contracts; see NOTICE.md. MIT.
 import type {Tool} from "@modelcontextprotocol/sdk/types.js";
 import {batchTool} from './batch-schema.js';
+import {historyTool} from './history.js';
 export const catalog: Tool[] = [
+  historyTool,
   batchTool,
   {
     "name": "windows_computer_use_health",

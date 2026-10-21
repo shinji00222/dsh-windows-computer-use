@@ -34,7 +34,7 @@ let fiber,fixture;
 try{
   fiber=ctx.plugin(adapter,adapter.Config({indicatorEnabled:false,readOnly:false}));
   await fiber;
-  assert.equal(tools.size,25,`Only ${tools.size} tools registered`);
+  assert.equal(tools.size,26,`Only ${tools.size} tools registered`);
   assert.ok(tools.has('mcp__shin_desktop__windows_computer_use_type_text'));
   const health=tools.get('mcp__shin_desktop__windows_computer_use_health');
   // Real Cordis hook publishes a user turn; the actual official MCP bridge
@@ -51,7 +51,8 @@ try{
   async function call(action,args={}){
     const tool=tools.get('mcp__shin_desktop__windows_computer_use_'+action);
     const execution={...exec,name:tool.name};
-    const result=await ctx.serial('tools/execute',execution,()=>tool.execute({...target,...args},execution));
+    const input=action==='operation_history'?args:{...target,...args};
+    const result=await ctx.serial('tools/execute',execution,()=>tool.execute(input,execution));
     const projection=tool.projectContent(execution,{value:result,content:tool.output.render(args,result),isError:false});
     if(action==='screenshot'||action==='run_batch'){
       const image=projection?.find(p=>p.type==='image');assert.ok(image,JSON.stringify(projection));
@@ -91,6 +92,15 @@ try{
   assert.equal(projectedImages.length,2,'Exactly initial and final images, no per-action screenshots');
   tree=await call('accessibility_tree');
   assert.equal(tree.nodes.find(node=>node.automationId==='testInput').value,'DSH 看图批量输入成功');
+  exec.agent.phase.turn=2;
+  const history=await call('operation_history');
+  const recordedBatch=history.entries.find(entry=>entry.operationId===batch.operation.operationId);
+  assert.ok(recordedBatch,'Batch evidence must survive into the next human turn');
+  assert.equal(recordedBatch.turn,1);
+  assert.equal(recordedBatch.evidence.completed,3);
+  assert.equal(recordedBatch.evidence.imageReturned,true);
+  assert.equal(recordedBatch.evidence.verification,'inspect_final_screenshot');
+  assert.ok(!JSON.stringify(history).includes('DSH 看图批量输入成功'),'History must not duplicate typed values');
   await call('close_window');
   let client;
   vm.runInNewContext(readFileSync(path.join(packageRoot,'dist/client.js'),'utf8'),{window:{__ModuleLoader__:{load:entry=>{client=entry.factory(name=>name==='react'?localRequire(name):hostRequire(name));}}}});

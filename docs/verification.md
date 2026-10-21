@@ -14,6 +14,14 @@
 
 ## 实际执行
 
+### 2026-10-21 开发分支：跨轮操作证据
+
+- Linux 环境完成 TypeScript 严格编译及 `tests/history.test.mjs` 的 9 项测试，包括会话隔离、跨轮查询、分页/淘汰、待完成状态、错误不确定性、只读与参数限制、部分批次图片保留、元数据脱敏，以及真实 stdio MCP 发现和查询。
+- 原生结果由测试替身提供；只有最后一项通过真实 MCP 子进程通信，未启动 Windows 引擎。依赖安装在 Linux 上使用 `npm ci --force --ignore-scripts` 越过包的 Windows 平台声明，未修改发行平台约束。
+- `tests/host-integration.mjs` 已增加跨轮查询真实批次操作编号和图片证据断言，工具数调整为 26；本环境没有 Windows/.NET/DSH Desktop，尚未执行新增宿主断言及完整原生回归，不据此声称 Windows 验证通过。
+
+### 先前版本的执行记录
+
 - `npm run build`：TypeScript 严格检查与 C# Release 自包含目录发布。
 - `npm test`：19 项通过。操作仅针对本次创建的专用 WinForms 窗口。
 - `tests/host-integration.mjs`：由已安装 DSH 的 Electron Node 模式执行，真实 Cordis 插件生命周期与官方 MCP 客户端注册工具、执行 C# health，并注册和渲染 React 插件说明卡片。使用独立内存上下文，未编辑用户 profile、调用模型或读取账号凭证。
