@@ -69,3 +69,11 @@
 - PowerShell 直接调用 GUI EXE 的返回值不足以证明子进程通过；宿主测试改为 Node `spawnSync` 等待并核对真实退出状态与断言输出。
 
 - preview.3 首次 CI 在批次开始前报控件检查失败，后续依赖步骤随之失败。布局遍历预算从 150ms 调整为 1000ms，保留不完整即停止规则，并区分错误原因；本机 24/24 再次通过，远端需以修复后的运行结果为准。
+
+## 2026-10-21 API 与真实模型工具调用验收
+
+- 官方 API 的模型列表与最小对话通过，使用 deepseek-flash。
+- Desktop 自带运行时的独立 headless 会话起初返回 TRANSPORT；同运行时无凭证 fetch 复现 SELF_SIGNED_CERT_IN_CHAIN。仅对测试进程设置 NODE_USE_SYSTEM_CA=1 后，未认证请求返回预期 HTTP 401，携凭证的真实模型会话正常回复。未关闭 TLS 校验，未修改全局环境或实际 desktop 配置。
+- 在 work/isolated-dsh 的 headless profile 安装已有 preview.4 tgz，真实模型通过 --json 事件输出调用 mcp__shin_desktop__windows_computer_use_health；tool_result 为 completed，返回 C# / Windows / 0.1.0-preview.4 / stopListener=true，CLI exit=0。
+- 凭证仅通过测试进程环境传递，不写入项目配置。证据记录不保留凭证、桌面窗口信息或完整会话正文。
+- 本次证明 API、DSH 模型路由和插件健康检查链路；没有验证截图、输入、浏览器表单或自主任务。模型最终文字对各子系统可用性的延伸描述不作为证据。已有浏览器 UIA 不完整问题仍待解决，实际安装保持 preview.3。
