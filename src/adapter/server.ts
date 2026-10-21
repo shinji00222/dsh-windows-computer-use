@@ -2,43 +2,25 @@
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import {CallToolRequestSchema,ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
-import {Ajv} from 'ajv';
 import {readFile} from 'node:fs/promises';
 import {Backend} from './backend.js';
 import {catalog} from './catalog.js';
+import {createToolHandler,readActions} from './tool-handler.js';
 const backend=new Backend({indicator:process.env.DSH_NATIVE_INDICATOR!=='0'});
 const server=new Server({name:'dsh-windows-computer-use',version:'0.1.0-preview.3'},{
   capabilities:{tools:{}},
-  instructions:'Prefer visual workflow: select a window, activate it, call screenshot, inspect its image, then run_batch with screenshotId and screenshot-pixel coordinates. Group up to 8 predictable actions on the same screen; final image is returned automatically. Checkpoint after navigation/submit/menu actions, and never replay completed actions after a partial stop. When layoutGuard is unavailable, only group known focus/typing steps and checkpoint uncertain actions. Images require an image-capable DSH model. UIA/OCR remain fallbacks.',
+  instructions:'Prefer visual workflow: select a window, activate it, call screenshot, inspect its image, then run_batch with screenshotId and screenshot-pixel coordinates. Group up to 8 predictable actions on the same screen; final image is returned automatically. Checkpoint after navigation/submit/menu actions, and never replay completed actions after a partial stop. When layoutGuard is unavailable, only group known focus/typing steps and checkpoint uncertain actions. Images require an image-capable DSH model. UIA/OCR remain fallbacks. Use operation_history to review prior turns in this conversation; operation evidence does not replace fresh observation or authorize replay.',
 });
-const ajv=new Ajv({useDefaults:true,strict:false,allErrors:true});
-const readActions=new Set(['health','list_windows','snapshot','accessibility_tree','find','element_info','screenshot','ocr','wait','wait_for']);
-const visibleCatalog=process.env.DSH_NATIVE_READ_ONLY==='1'?catalog.filter(tool=>readActions.has(tool.name.replace('windows_computer_use_',''))):catalog;
-const validators=new Map(catalog.map(tool=>[tool.name,ajv.compile(tool.inputSchema)]));
+const readOnly=process.env.DSH_NATIVE_READ_ONLY==='1';
+const visibleCatalog=readOnly?catalog.filter(tool=>readActions.has(tool.name.replace('windows_computer_use_',''))):catalog;
+const turnFile=process.env.DSH_NATIVE_TURN_FILE;
+const handleTool=createToolHandler({backend,readOnly,getTurnId:turnFile?async()=>{
+  const state=JSON.parse(await readFile(turnFile,'utf8')) as {turnId?:string};
+  if(!state.turnId)throw new Error('NO_ACTIVE_USER_TURN');
+  return state.turnId;
+}:undefined});
 server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:visibleCatalog}));
-server.setRequestHandler(CallToolRequestSchema,async(request,extra)=>{
-  try{
-    const validate=validators.get(request.params.name);
-    if(!validate)throw new Error('UNKNOWN_TOOL');
-    const args=structuredClone(request.params.arguments??{});
-    if(!validate(args))throw new Error('INVALID_ARGUMENTS: '+ajv.errorsText(validate.errors));
-    const action=request.params.name.replace('windows_computer_use_','');
-    if(process.env.DSH_NATIVE_READ_ONLY==='1'&&!readActions.has(action))throw new Error('READ_ONLY: desktop input disabled by user.');
-    if(['click','double_click','move','scroll','element_info'].includes(action)&&!args.elementId&&(args.x===undefined||args.y===undefined))throw new Error('POINT_REQUIRED: supply elementId or both x and y.');
-    let turnId='standalone';
-    if(process.env.DSH_NATIVE_TURN_FILE){
-      const state=JSON.parse(await readFile(process.env.DSH_NATIVE_TURN_FILE,'utf8')) as {turnId?:string};
-      if(!state.turnId)throw new Error('NO_ACTIVE_USER_TURN');turnId=state.turnId;
-      if(action==='resume')throw new Error('RESUME_DISABLED_IN_DSH: wait for a new human turn.');
-    }
-    const result=await backend.call(action,args,turnId,extra.signal);
-    const image=result.screenshot as {base64?:string;mimeType?:string}|undefined;
-    const safe=structuredClone(result);if(safe.screenshot)delete (safe.screenshot as Record<string,unknown>).base64;
-    const content:({type:'text';text:string}|{type:'image';data:string;mimeType:string})[]=[{type:'text',text:JSON.stringify(safe)}];
-    if(image?.base64)content.push({type:'image',data:image.base64,mimeType:image.mimeType??'image/png'});
-    return {content};
-  }catch(error){return {isError:true,content:[{type:'text',text:error instanceof Error?error.message:String(error)}]};}
-});
+server.setRequestHandler(CallToolRequestSchema,async(request,extra)=>handleTool(request.params.name,request.params.arguments,extra.signal));
 let closing=false;
 async function close(){if(closing)return;closing=true;await backend.close();await server.close();}
 process.stdin.on('end',()=>{void close();});
