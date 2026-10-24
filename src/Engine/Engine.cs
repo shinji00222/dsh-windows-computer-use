@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
-using System.Windows.Automation;
+using DesktopNative.Automation;
+using ElementNotAvailableException = System.Windows.Automation.ElementNotAvailableException;
 namespace DesktopNative;
 internal sealed class Engine(Safety safety)
 {
@@ -84,3 +85,4 @@ internal sealed class Engine(Safety safety)
         }
     }
 }
+

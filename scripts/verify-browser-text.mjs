@@ -12,7 +12,7 @@ const html=readFileSync('tests/browser-form.html');
 const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html;charset=utf-8');res.end(html);});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=spawn(process.env.DSH_TEST_BROWSER??'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  [`--user-data-dir=${root}`,`--app=http://127.0.0.1:${server.address().port}/`,'--no-first-run','--no-default-browser-check','--force-renderer-accessibility','--window-position=20,20','--window-size=900,700'],{stdio:'ignore',windowsHide:false});
+  [`--user-data-dir=${root}`,`--app=http://127.0.0.1:${server.address().port}/`,'--guest','--no-first-run','--no-default-browser-check','--force-renderer-accessibility','--window-position=20,20','--window-size=900,700'],{stdio:'ignore',windowsHide:false});
 const backend=new Backend({indicator:false});
 let hwnd;
 try{
@@ -23,12 +23,12 @@ try{
     await new Promise(resolve=>setTimeout(resolve,300));
   }
   assert.ok(hwnd,'Browser fixture window must exist');
-  const call=(action,args={})=>backend.call(action,{nativeWindowHandle:hwnd,...args},'browser-test');
+  const call=async(action,args={})=>{try{return await backend.call(action,{nativeWindowHandle:hwnd,...args},'browser-test');}catch(error){throw new Error(action+': '+error.message,{cause:error});}};
   await call('activate_window');
   let view;
   for(let i=0;i<20;i++){
     view=await call('observe_text');
-    if(view.nodes.some(n=>n.name==='测试姓名'))break;
+    if(view.batchAvailable&&['测试姓名','测试城市'].every(name=>view.nodes.some(n=>n.name===name&&n.canFill)))break;
     await new Promise(resolve=>setTimeout(resolve,200));
   }
   const person=view.nodes.find(n=>n.name==='测试姓名'&&n.canFill);

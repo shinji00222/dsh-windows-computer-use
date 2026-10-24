@@ -10,6 +10,12 @@ internal static class Program
         Console.InputEncoding = Encoding.UTF8; Console.OutputEncoding = new UTF8Encoding(false);
         Forms.Application.SetHighDpiMode(Forms.HighDpiMode.PerMonitorV2);
         if (args.Contains("--fixture")) { Fixture.Run(); return; }
+        // UIA3 cross-process calls need an MTA worker; keep fixture UI on STA.
+        var worker = new Thread(Run);
+        worker.SetApartmentState(ApartmentState.MTA);
+        worker.Start(); worker.Join();
+    }
+    private static void Run() {
         using var safety = new Safety(); var engine = new Engine(safety);
         using var queue = new BlockingCollection<JsonElement>(256);
         var outputLock = new object();
@@ -37,7 +43,7 @@ internal static class Program
                 var result = engine.Execute(action, a, turn, indicator);
                 if (action is not ("health" or "resume" or "run_batch" or "run_text_batch")) safety.Check();
                 Reply(new { id, ok = true, result });
-            } catch (Exception e) { Reply(new { id, ok = false, error = e.Message, errorType = e.GetType().Name }); }
+            } catch (Exception e) { if (Environment.GetEnvironmentVariable("DSH_NATIVE_DIAGNOSTICS") == "1") Console.Error.WriteLine(e.StackTrace); Reply(new { id, ok = false, error = e.Message, errorType = e.GetType().Name }); }
         }
         reader.GetAwaiter().GetResult();
     }

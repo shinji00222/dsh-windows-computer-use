@@ -1,7 +1,8 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Text.Json;
-using System.Windows.Automation;
+using DesktopNative.Automation;
+using ElementNotAvailableException = System.Windows.Automation.ElementNotAvailableException;
 
 namespace DesktopNative;
 
@@ -141,3 +142,4 @@ internal sealed class VisualBatch(WindowsUi ui, Safety safety)
         return (action, new Arguments(JsonSerializer.SerializeToElement(values)), step.TryGetProperty("checkpoint", out var check) && check.GetBoolean());
     }
 }
+

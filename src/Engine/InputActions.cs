@@ -1,4 +1,5 @@
-using System.Windows.Automation;
+using DesktopNative.Automation;
+using ElementNotAvailableException = System.Windows.Automation.ElementNotAvailableException;
 using Forms = System.Windows.Forms;
 namespace DesktopNative;
 internal sealed class InputActions(WindowsUi ui, Safety safety)
@@ -44,8 +45,8 @@ internal sealed class InputActions(WindowsUi ui, Safety safety)
         ui.CheckTarget(hwnd, a); ui.Foreground(hwnd, a);
         if (a.Text("method") == "background") throw new InvalidOperationException("UNSUPPORTED: background typing is not supported by v1.");
         if (a.Text("focusMode") == "main") {
-            var edits = ui.Root(hwnd).FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit));
-            if (edits.Count != 1) throw new InvalidOperationException("AMBIGUOUS_TEXT_CONTROL: click or focus a specific element first.");
+            var edits = ui.Root(hwnd).FindEdits();
+            if (edits.Length != 1) throw new InvalidOperationException("AMBIGUOUS_TEXT_CONTROL: click or focus a specific element first.");
             edits[0].SetFocus();
         }
         var text = a.Text("text");
@@ -59,13 +60,15 @@ internal sealed class InputActions(WindowsUi ui, Safety safety)
                 try { Native.Key(key, false, unicode); } finally { Native.Key(key, true, unicode); }
             }
         } else {
+            OnClipboardThread(() => {
             var old = a.Bool("restoreClipboard", true) ? Forms.Clipboard.GetDataObject() : null;
             try {
-                if (text.Length == 0) return new { verification = "sent", characters = 0 };
+                if (text.Length == 0) return;
                 Forms.Clipboard.SetText(text); Chord(hwnd, a, ["ctrl", "v"]); safety.Delay(200);
             } finally {
                 if (a.Bool("restoreClipboard", true)) { if (old is null) Forms.Clipboard.Clear(); else Forms.Clipboard.SetDataObject(old, true); }
             }
+            });
         }
         string? value = null;
         try {
@@ -78,6 +81,13 @@ internal sealed class InputActions(WindowsUi ui, Safety safety)
     internal object Keys(nint hwnd, Arguments a) {
         if (a.Text("dispatch") == "background") throw new InvalidOperationException("UNSUPPORTED: background chords are not supported by v1.");
         ui.CheckTarget(hwnd, a); Chord(hwnd, a, a.Array("keys").Select(v => v.GetString()!).ToArray()); return new { verification = "sent" };
+    }
+    private static void OnClipboardThread(Action action) {
+        Exception? failure = null;
+        var thread = new Thread(() => { try { action(); } catch (Exception e) { failure = e; } });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start(); thread.Join();
+        if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
     }
     private void Chord(nint hwnd, Arguments a, string[] keys) {
         ui.Foreground(hwnd, a); safety.Check();
@@ -121,3 +131,4 @@ internal sealed class InputActions(WindowsUi ui, Safety safety)
         return new { verification = "sent" };
     }
 }
+

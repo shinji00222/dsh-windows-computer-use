@@ -11,4 +11,5 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
-</Project>
+<ItemGroup><PackageReference Include="FlaUI.UIA3" Version="5.0.0" /></ItemGroup></Project>
+

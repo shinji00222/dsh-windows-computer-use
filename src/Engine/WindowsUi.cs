@@ -1,5 +1,6 @@
 using System.Diagnostics;
-using System.Windows.Automation;
+using DesktopNative.Automation;
+using ElementNotAvailableException = System.Windows.Automation.ElementNotAvailableException;
 using Drawing = System.Drawing;
 
 namespace DesktopNative;
@@ -136,7 +137,9 @@ internal sealed class WindowsUi(Safety safety)
                     if (match && (!a.Has("controlType") || type.Equals(a.Text("controlType"), StringComparison.OrdinalIgnoreCase))) {
                         var owner = a.Text("scope") == "desktop" ? Owner(e) : hwnd;
                         if (owner != 0 && !observed.ContainsKey(owner)) Observe(owner);
-                        nodes.Add(Info(e, owner, depth));
+                        try { nodes.Add(Info(e, owner, depth)); }
+                        catch (InvalidOperationException) { truncated = true; reason ??= "uiaPropertyUnavailable"; }
+                        catch (System.Runtime.InteropServices.COMException) { truncated = true; reason ??= "uiaPropertyUnavailable"; }
                         if (query is not null && nodes.Count >= a.Int("maxResults", 25)) { truncated = true; reason = "maxResults"; break; }
                     }
                 }
@@ -174,3 +177,4 @@ internal sealed class WindowsUi(Safety safety)
     }
     internal void Invalidate(nint hwnd) { observed.Remove(hwnd); }
 }
+
